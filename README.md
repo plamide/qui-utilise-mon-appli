@@ -1,93 +1,163 @@
-# Qui utilise mon appli 
+# Qui utilise mon appli ?
+
+## Présentation
+
+L'objectif est d'identifier automatiquement l'utilisateur d'un logiciel à partir de ses traces d'utilisation, c'est-à-dire des différentes actions réalisées au cours d'une session.
+
+---
+
+## Objectif Machine Learning
+
+Le problème est formulé comme un problème de **classification multiclasse** :
+
+- **Entrées** : traces d'utilisation correspondant aux actions réalisées au cours d'une session ;
+- **Sortie** : identité de l'utilisateur ayant réalisé la session.
+
+Le pipeline doit donc transformer les traces brutes en caractéristiques exploitables par un modèle de Machine Learning, entraîner un classifieur sur le jeu d'entraînement puis prédire l'utilisateur associé aux sessions du jeu de test.
+
+---
+
+## Métrique d'évaluation
+
+La métrique principale utilisée pour évaluer les modèles est le **F1-score moyen**.
+
+Le F1-score combine la précision et le rappel :
+
+\[
+F1 = 2 \times \frac{Precision \times Recall}{Precision + Recall}
+\]
+
+avec :
+
+\[
+Precision = \frac{TP}{TP + FP}
+\]
+
+et :
+
+\[
+Recall = \frac{TP}{TP + FN}
+\]
+
+Cette métrique permet de prendre simultanément en compte les faux positifs et les faux négatifs.
+
+L'objectif est donc de maximiser le F1-score obtenu par le modèle sur les utilisateurs à prédire.
+
+---
+
+## Architecture du projet
+
+Le projet est organisé de manière modulaire afin de séparer la préparation des données, l'entraînement, l'optimisation et l'évaluation des modèles.
+
+    .
+    ├── data/
+    │   ├── train.csv
+    │   ├── test.csv
+    │   └── train_data.py
+    │
+    ├── data_explore/
+    │   └── *.ipynb
+    │
+    ├── main/
+    │   └── main.py
+    │
+    ├── model/
+    │   ├── train_model.py
+    │   └── optimize.py
+    │
+    ├── utils/
+    │   └── reporter.py
+    │
+    ├── .gitignore
+    └── README.md
+
+### `data/`
+
+Contient les données utilisées par le projet ainsi que les fonctions de préparation des données.
+
+- `train.csv` : données utilisées pour l'entraînement des modèles ;
+- `test.csv` : données sur lesquelles les prédictions finales doivent être réalisées ;
+- `train_data.py` : chargement, nettoyage et transformation des données brutes en caractéristiques exploitables par les modèles.
+
+### `data_explore/`
+
+Contient les notebooks Jupyter utilisés pour l'exploration et l'analyse des données.
+
+Ces notebooks permettent notamment d'étudier la structure des traces avant leur utilisation dans le pipeline d'apprentissage.
+
+### `main/`
+
+Contient le point d'entrée principal du projet.
+
+`main.py` orchestre les différentes étapes du pipeline :
+
+1. préparation des données ;
+2. création et entraînement du modèle ;
+3. évaluation du modèle ;
+4. génération éventuelle des résultats et rapports.
+
+### `model/`
+
+Contient la partie consacrée à la modélisation.
+
+- `train_model.py` : création, entraînement et évaluation des modèles de classification ;
+- `optimize.py` : optimisation des hyperparamètres à l'aide d'une recherche bayésienne avec Optuna.
+
+### `utils/`
+
+Contient les fonctions utilitaires utilisées par les autres modules.
+
+`reporter.py` a pour objectif de générer automatiquement un rapport HTML présentant les performances d'un modèle. Cette fonctionnalité est actuellement en cours de développement.
+
+---
+
+## Feature Engineering
+
+Baseline réalisée avec une régression logistique (f1-score = 0.72) puis optimisée via optuna pour le jeu d'hyperparamètres C (régularisation) et tol (tolérance). 
+
+La branche **navigator_optimize** a pour but d'améliorer ce score en tenant compte du fait que l'ensemble des utilisateurs sont mononavigateurs afin de réaliser un prétraitement des données en fonction du navigateur. 
+
+La piste d'un meilleur traitement des **actions** est à envisager (vocabulaire des écrans, modules ERP $...$, capture des routines : ex : Saisie -> Raccourci -> Bouton)
+
+---
 
 
+## Optimisation des hyperparamètres
 
-## Getting started
+L'optimisation des hyperparamètres est réalisée à l'aide de **Optuna**.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Le module `model/optimize.py` permet d'effectuer une optimisation bayésienne afin de rechercher automatiquement des configurations d'hyperparamètres performantes selon la métrique d'évaluation retenue.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+---
 
-## Add your files
+## Résultats
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+Les performances des différents modèles sont évaluées principalement à l'aide du F1-score.
 
-```
-cd existing_repo
-git remote add origin https://gitlab.ec-lyon.fr/datascience_be/qui-utilise-mon-appli.git
-git branch -M main
-git push -uf origin main
-```
+| Modèle | F1-score 
 
-## Integrate with your tools
 
-* [Set up project integrations](https://gitlab.ec-lyon.fr/datascience_be/qui-utilise-mon-appli/-/settings/integrations)
+---
 
-## Collaborate with your team
+## Exécution du projet
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+Le pipeline principal peut être lancé depuis la racine du projet avec :
 
-## Test and Deploy
+    python main/main.py
 
-Use the built-in continuous integration in GitLab.
+Le programme assure ensuite le chargement des données, leur préparation et l'entraînement du modèle configuré.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+---
 
-***
+## Librairies utilisées
 
-# Editing this README
+- Python
+- pandas
+- plotly
+- NumPy
+- SciPy
+- scikit-learn
+- Optuna
+- Jupyter Notebook
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+---
