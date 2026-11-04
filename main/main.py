@@ -11,7 +11,9 @@ def run_pipeline(
         train_split: float, 
         params:dict, 
         generate_report: bool, 
-        report_filename: str
+        report_filename: str, 
+        predict:bool = True, 
+        predict_filename:str = "test.csv"
         ):
     """
     Exécute le pipeline complet : préparation des données, entraînement du modèle et génération du rapport.
@@ -31,16 +33,53 @@ def run_pipeline(
         report_filename=report_filename
     )
 
+    print("Entrainement terminé.")
+
+    if predict :
+        print("Prédiction sur les données de test...")
+        from data.test_data import test_data
+        # Données de test
+        X_test = test_data("test", transformer)
+
+        # Prédiction 
+        y_test_pred = model.predict(X_test)
+
+        # Sauvegarde vers un CSV
+        import pandas as pd
+
+        df_predictions = pd.DataFrame({
+            "RowId": range(1, len(y_test_pred) + 1),
+            "prediction": y_test_pred
+        })
+
+        df_predictions.to_csv(predict_filename, index=False)
+        print(f"Prédictions sauvegardées dans le fichier : {predict_filename}")
+
+
+
+
 if __name__ == "__main__":
 
-    model_type = "LogisticRegression"
+    # model_type = "LogisticRegression"
+    # train_split = 0.8
+    # params = {
+    #     'C': 81.66170040525944,
+    #     'tol': 5.171910682373782e-05
+    # }
+    # generate_report = False
+    # report_filename = "rapport_evaluation.html"
+
+    model_type = "LinearSVC"
     train_split = 0.8
     params = {
-        'C': 81.66170040525944,
-        'tol': 5.171910682373782e-05
+        "C": 6.321627285922138,
+        "tol": 0.0008058376899739417, 
+        "max_iter": 3000, 
+        "loss": "squared_hinge", 
+        "dual": "auto"
     }
     generate_report = False
     report_filename = "rapport_evaluation.html"
 
 
-    run_pipeline(model_type, train_split, params, generate_report, report_filename)
+    run_pipeline(model_type, train_split, params, generate_report, report_filename, predict=True, predict_filename="test.csv")

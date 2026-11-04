@@ -33,6 +33,15 @@ def train_model(
             solver='lbfgs',
             random_state=42
         )
+    elif model_type == "LinearSVC":
+        from sklearn.svm import LinearSVC
+        model = LinearSVC(
+            C=1.0, 
+            class_weight='balanced', 
+            random_state=42, 
+            max_iter=2000
+            )
+
     # elif model_type == "LogisticRegressionCV":
     #     from sklearn.linear_model import LogisticRegressionCV
     #     model = LogisticRegressionCV(
@@ -72,15 +81,23 @@ if __name__ == "__main__":
     X_train, X_val, y_train, y_val, transformer = td.train_data("train")
 
     params = {
-        'C': 81.66170040525944,
-        'tol': 5.171910682373782e-05
+        'C': 1.0,
+        'tol': 1e-4
     }
 
+    # model, report = train_model(X_train, 
+    #                             y_train, 
+    #                             X_val, 
+    #                             y_val,
+    #                             params,
+    #                             model_type="LogisticRegression", 
+    #                             generate_report=True,
+    #                             report_filename="rapport_evaluation.html")
     model, report = train_model(X_train, 
                                 y_train, 
                                 X_val, 
                                 y_val,
                                 params,
-                                model_type="LogisticRegression", 
-                                generate_report=True,
+                                model_type="LinearSVC", 
+                                generate_report=False,
                                 report_filename="rapport_evaluation.html")
