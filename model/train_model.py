@@ -36,10 +36,9 @@ def train_model(
     elif model_type == "LinearSVC":
         from sklearn.svm import LinearSVC
         model = LinearSVC(
-            C=1.0, 
+            **params, 
             class_weight='balanced', 
             random_state=42, 
-            max_iter=2000
             )
 
     # elif model_type == "LogisticRegressionCV":
@@ -70,7 +69,8 @@ def train_model(
     print(f" Modèle            : {model_type}")
     print(f" Précision globale : {acc * 100:.2f} %")
     print(f" F1-Score Macro    : {macro_f1:.4f}")
-    print(f" Rapport sauvegardé: {report_filename}")
+    if generate_report:
+        print(f" Rapport sauvegardé: {report_filename}")
     print("=" * 45)
 
     return model, classification_report(y_val, y_pred, output_dict=True)
@@ -80,24 +80,35 @@ if __name__ == "__main__":
 
     X_train, X_val, y_train, y_val, transformer = td.train_data("train")
 
-    params = {
+    paramsLR = {
         'C': 1.0,
         'tol': 1e-4
     }
 
+    # Regression logistique
     # model, report = train_model(X_train, 
     #                             y_train, 
     #                             X_val, 
     #                             y_val,
-    #                             params,
+    #                             paramsLR,
     #                             model_type="LogisticRegression", 
-    #                             generate_report=True,
+    #                             generate_report=False,
     #                             report_filename="rapport_evaluation.html")
+    
+    # SVC
+    paramsSVC = {
+            "C": 6.321627285922138,
+            "tol": 0.0008058376899739417, 
+            "max_iter": 3000, 
+            "loss": "squared_hinge", 
+            "dual": "auto"
+        }
+
     model, report = train_model(X_train, 
                                 y_train, 
                                 X_val, 
                                 y_val,
-                                params,
+                                paramsSVC,
                                 model_type="LinearSVC", 
                                 generate_report=False,
                                 report_filename="rapport_evaluation.html")

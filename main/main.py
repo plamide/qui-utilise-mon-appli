@@ -82,4 +82,4 @@ if __name__ == "__main__":
     report_filename = "rapport_evaluation.html"
 
 
-    run_pipeline(model_type, train_split, params, generate_report, report_filename, predict=True, predict_filename="test.csv")
+    run_pipeline(model_type, train_split, params, generate_report, report_filename, predict=False, predict_filename="test.csv")

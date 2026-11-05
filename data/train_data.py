@@ -122,7 +122,7 @@ def train_data(file_path: str = "train", train_split: float = 0.8, random_state:
     X_modules_test = tfidf_modules.transform(t_mods_te)
 
     # TF-IDF Actions
-    tfidf_actions = TfidfVectorizer(max_features=2000, sublinear_tf=False, ngram_range=(2, 3))
+    tfidf_actions = TfidfVectorizer(max_features=2000, sublinear_tf=True, ngram_range=(1, 3))
     X_actions_train = tfidf_actions.fit_transform(t_acts_tr)
     X_actions_test = tfidf_actions.transform(t_acts_te)
 
