@@ -2,20 +2,24 @@ import pandas as pd
 import re
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.model_selection import train_test_split
 from scipy.sparse import hstack # type: ignore
 import numpy as np
 
 
-def train_data(file_path: str = "train"):
+def train_data(file_path: str = "train", train_split: float = 0.8, random_state: int = 42):
     '''
-    Charge les données d'entraînement, nettoie, extrait les caractéristiques
-    et retourne la matrice X prête pour le modèle et le vecteur y.
+    Charge les données d'entraînement, 
+    effectue le split train/test,
+    nettoie, 
+    extrait les caractéristiques et retourne les matrices X et vecteurs y correspondants.
 
     Paramètres:
     - file_path: str : chemin vers le fichier CSV contenant les données d'entraînement.
+    - train_split: float : proportion du jeu de données à allouer au test (ex: 0.2 pour 20%).
 
     Retourne:
-    - X: scipy.sparse.csr.csr_matrix : matrice des caractéristiques 
+    - X_train, X_test, y_train, y_test 
     '''
 
     def read_ds(ds_name: str):
@@ -28,84 +32,120 @@ def train_data(file_path: str = "train"):
             from io import StringIO
             return pd.read_csv(StringIO("".join(lines)), names=_names, dtype=str)
 
-    #Chargement des données 
-    df_train = read_ds(file_path)
+    # Chargement global des données brutes
+    df_train_full = read_ds(file_path)
 
-    y = df_train["util"].values
-    X_df = df_train.drop(columns=["util"])
+    y_full = df_train_full["util"].values
+    X_df_full = df_train_full.drop(columns=["util"])
 
-    def clean_data(df: pd.DataFrame):
-        # Navigateur
-        df_navigateur = df[["navigateur"]]
-        # Actions
-        df_actions = df.drop(columns=["navigateur"])
+    # 1. SPLIT DES DONNÉES BRUTES AVANT TOUT ENCODAGE 
+    X_train_df, X_test_df, y_train, y_test = train_test_split(
+        X_df_full, y_full, test_size=train_split, random_state=random_state, stratify=y_full
+    )
 
-        def encode_navigateur(df_nav: pd.DataFrame):
-            '''Encode la colonne navigateur en One-Hot.'''
-            enc = OneHotEncoder(sparse_output=True, handle_unknown='ignore')
-            navigateur_encoded = enc.fit_transform(df_nav)
-            return navigateur_encoded, enc
+    def extract_features_and_text(df_act: pd.DataFrame):
+        p_time   = re.compile(r"^t(\d{1,6})$")
+        p_screen = re.compile(r"\(([^)]+)\)")
+        p_module = re.compile(r"\$(\w+)\$")
+        p_noise  = re.compile(r"\([^)]*\)|\$[^$]*\$|<[^>]*>")
 
-        p_time = re.compile(r"^t(\d{1,6})$")
+        text_ecrans  = []
+        text_modules = []
+        text_actions = []
+        numeric_features = []
 
-        def extract_features_and_text(df_act: pd.DataFrame):
-            '''Extrait le texte des sessions et les features numériques.'''
-            text_sessions = []
-            numeric_features = []
+        for row in df_act.values:
+            t_max = 0
+            num_actions = 0
+            ecrans, modules, actions = [], [], []
 
-            for row in df_act.values:
-                t_max = 0
-                num_actions = 0
-                actions = []
+            for val in row:
+                if pd.isna(val):
+                    continue
+                val_str = str(val).strip()
 
-                for val in row:
-                    if pd.isna(val):
-                        continue
-                    val_str = str(val).strip()
-                    m = p_time.match(val_str)
-                    if m:
-                        val_t = int(m.group(1))
-                        if val_t > t_max:  # noqa: PLR1730
-                            t_max = val_t
-                    else:
-                        num_actions += 1
-                        actions.append(val_str.replace(" ", "_"))
+                m_time = p_time.match(val_str)
+                if m_time:
+                    val_t = int(m_time.group(1))
+                    if val_t > t_max:
+                        t_max = val_t
+                    continue
 
-                text_sessions.append(" ".join(actions))
-                cadence = (num_actions / (t_max + 1)) * 60
-                numeric_features.append([t_max, num_actions, cadence])
+                num_actions += 1
 
-            return text_sessions, np.array(numeric_features)
+                m_screen = p_screen.search(val_str)
+                if m_screen:
+                    ecrans.append(m_screen.group(1).replace(" ", "_"))
 
-        # Encodage
-        nav_encoded, enc_nav = encode_navigateur(df_navigateur)
+                for m_mod in p_module.finditer(val_str):
+                    modules.append(m_mod.group(1))
 
-        #Texte et features numériques
-        text_sessions, num_feats = extract_features_and_text(df_actions)
+                action_clean = p_noise.sub("", val_str).strip().replace(" ", "_")
+                if action_clean:
+                    actions.append(action_clean)
 
-        # Vectorisation TF-IDF sur les actions
-        tfidf = TfidfVectorizer(max_features=2000, ngram_range=(1, 2))
-        X_tfidf = tfidf.fit_transform(text_sessions)
+            text_ecrans.append(" ".join(ecrans))
+            text_modules.append(" ".join(modules))
+            text_actions.append(" ".join(actions))
+            cadence = (num_actions / (t_max + 1)) * 60
+            numeric_features.append([t_max, num_actions, cadence])
 
-        # Standardisation des variables continues (durée, nb actions, cadence)
-        scaler = StandardScaler()
-        X_num = scaler.fit_transform(num_feats)
+        return text_ecrans, text_modules, text_actions, np.array(numeric_features)
 
-        X_final = hstack([X_tfidf, X_num, nav_encoded])
+    # 2. Extraction du texte et des features numériques pour Train et Test séparément
+    # Navigation
+    train_navigateur = X_train_df[["navigateur"]]
+    test_navigateur = X_test_df[["navigateur"]]
 
-        # Transformers 
-        transformers = {
-            "tfidf": tfidf,
-            "scaler": scaler,
-            "enc_nav": enc_nav
-        }
+    # Actions
+    train_actions_df = X_train_df.drop(columns=["navigateur"])
+    test_actions_df = X_test_df.drop(columns=["navigateur"])
 
-        return X_final, transformers
+    t_ecrans_tr, t_mods_tr, t_acts_tr, num_feats_tr = extract_features_and_text(train_actions_df)
+    t_ecrans_te, t_mods_te, t_acts_te, num_feats_te = extract_features_and_text(test_actions_df)
 
-    X, transformers = clean_data(X_df)
+    # 3. ENCODAGE & AJUSTEMENT STRICTEMENT SUR LE TRAIN (puis application sur le test)
+    
+    # OneHotEncoder Navigateur
+    enc_nav = OneHotEncoder(sparse_output=True, handle_unknown='ignore')
+    nav_encoded_train = enc_nav.fit_transform(train_navigateur)
+    nav_encoded_test = enc_nav.transform(test_navigateur)
 
-    return X, y, transformers
+    # TF-IDF Ecrans
+    tfidf_ecrans = TfidfVectorizer(max_features=500, sublinear_tf=True, ngram_range=(1, 1))
+    X_ecrans_train = tfidf_ecrans.fit_transform(t_ecrans_tr)
+    X_ecrans_test = tfidf_ecrans.transform(t_ecrans_te)
+
+    # TF-IDF Modules
+    tfidf_modules = TfidfVectorizer(max_features=100, sublinear_tf=True, ngram_range=(1, 1))
+    X_modules_train = tfidf_modules.fit_transform(t_mods_tr)
+    X_modules_test = tfidf_modules.transform(t_mods_te)
+
+    # TF-IDF Actions
+    tfidf_actions = TfidfVectorizer(max_features=2000, sublinear_tf=False, ngram_range=(2, 3))
+    X_actions_train = tfidf_actions.fit_transform(t_acts_tr)
+    X_actions_test = tfidf_actions.transform(t_acts_te)
+
+    # Standardisation
+    scaler = StandardScaler()
+    X_num_train = scaler.fit_transform(num_feats_tr)
+    X_num_test = scaler.transform(num_feats_te)
+
+    # 4. Assemblage final (hstack)
+    X_train_final = hstack([X_ecrans_train, X_modules_train, X_actions_train, X_num_train, nav_encoded_train])
+    X_test_final = hstack([X_ecrans_test, X_modules_test, X_actions_test, X_num_test, nav_encoded_test])
+
+    transformers = {
+        "tfidf_ecrans":  tfidf_ecrans,
+        "tfidf_modules": tfidf_modules,
+        "tfidf_actions": tfidf_actions,
+        "scaler":        scaler,
+        "enc_nav":       enc_nav
+    }
+
+    return X_train_final, X_test_final, y_train, y_test, transformers
 
 if __name__ == "__main__":
-    X, y, transformers = train_data("train")
-    print(f"X shape: {X.shape}, y shape: {y.shape}")
+    X_train, X_test, y_train, y_test, transformers = train_data("train", train_split=0.8)
+    print(f"X_train shape: {X_train.shape}, X_test shape: {X_test.shape}")
+    print(f"y_train shape: {y_train.shape}, y_test shape: {y_test.shape}")

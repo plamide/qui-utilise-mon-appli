@@ -1,5 +1,5 @@
 data/*.csv
-
+explore_data/*.html
 __pycache__/
 *.py[cod]
 

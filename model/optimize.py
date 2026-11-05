@@ -4,31 +4,29 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import optuna
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score
 from data.train_data import train_data
 
-# 1. Chargement des données brutes
-X, y, _ = train_data("train")
+# Chargement des données brutes
+X_train, X_val, y_train, y_val, _ = train_data("train")
 
-X_train, X_val, y_train, y_val = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
-
-# 2. Définition de la fonction objectif à maximiser
+# Fonction objectif à maximiser
 def objective(trial):
-    # Espace de recherche des hyperparamètres
-    c_val = trial.suggest_float("C", 1e-2, 1e2, log=True)
-    tol = trial.suggest_float("tol", 1e-5, 1e-3, log=True)
+    # Élargissement des fenêtres d'optimisation et des paramètres
+    c_val = trial.suggest_float("C", 1e-4, 1e4, log=True)
+    tol = trial.suggest_float("tol", 1e-6, 1e-2, log=True)
+    solver = trial.suggest_categorical("solver", ["lbfgs", "saga"])
+    max_iter = trial.suggest_int("max_iter", 500, 2000, step=100)
     
-    # Modèle avec les hyperparamètres du trial
+    # SAGA gère bien la pénalité L1/L2, mais ici restons sur L2 par défaut, 
+    # ou laissons le solveur s'adapter.
     model = LogisticRegression(
         C=c_val,
         tol=tol,
+        solver=solver,
+        max_iter=max_iter,
         class_weight="balanced",
-        max_iter=1000,
-        solver="lbfgs",
         random_state=42
     )
     
@@ -47,8 +45,8 @@ if __name__ == "__main__":
     # Création de l'étude (direction : maximiser le F1)
     study = optuna.create_study(direction="maximize", study_name="Copilote_F1_Optimization")
     
-    print(" Lancement de l'optimisation Optuna (30 essais)...")
-    study.optimize(objective, n_trials=30, timeout=600)
+    print(" Lancement de l'optimisation Optuna élargie (50 essais)...")
+    study.optimize(objective, n_trials=50, timeout=900)
 
     print("\n" + "=" * 50)
     print(f" Meilleur F1-Score Macro : {study.best_value:.4f}")
@@ -57,6 +55,15 @@ if __name__ == "__main__":
         print(f"   - {key}: {val}")
     print("=" * 50)
 
-    # 3. Visualisation intégrée d'Optuna (pour votre rapport de BE !)
-    # fig = optuna.visualization.plot_optimization_history(study)
-    # fig.write_html("optuna_history.html")
+    # 1. Visualisation de l'historique d'optimisation
+    fig_history = optuna.visualization.plot_optimization_history(study)
+    fig_history.write_html("optuna_history.html")
+    print(" Rapport d'historique sauvegardé : optuna_history.html")
+
+    # 2. Visualisation de l'importance des hyperparamètres
+    try:
+        fig_importances = optuna.visualization.plot_param_importances(study)
+        fig_importances.write_html("optuna_importances.html")
+        print(" Rapport d'importance sauvegardé : optuna_importances.html")
+    except Exception as e:
+        print(f"Impossible de générer le graphe d'importance (nombre d'essais potentiellement insuffisant) : {e}")

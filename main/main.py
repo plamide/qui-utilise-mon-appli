@@ -17,15 +17,16 @@ def run_pipeline(
     Exécute le pipeline complet : préparation des données, entraînement du modèle et génération du rapport.
     """
     # Préparation des données
-    X, y, transformer = train_data("train")
+    X_train, X_val, y_train, y_val, transformer = train_data("train")
 
     # Entraînement du modèle et génération du rapport
     model, report = train_model(
-        X, 
-        y, 
+        X_train, 
+        y_train, 
+        X_val,
+        y_val,
         params,
         model_type=model_type, 
-        train_split=train_split,
         generate_report=generate_report,
         report_filename=report_filename
     )

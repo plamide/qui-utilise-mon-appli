@@ -5,16 +5,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import scipy.sparse
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 from utils.reporter import generate_html_report
 
 def train_model(
-    X: scipy.sparse.csr_matrix, 
-    y: np.ndarray, 
+    X_train: scipy.sparse.csr_matrix, 
+    y_train: np.ndarray, 
+    X_val: scipy.sparse.csr_matrix, 
+    y_val: np.ndarray, 
     params: dict,
     model_type: str = "LogisticRegression", 
-    train_split: float = 0.8,
     generate_report: bool = False, 
     report_filename: str = "rapport_evaluation.html"   
     ):    
@@ -23,9 +23,6 @@ def train_model(
     Entraîne un modèle de machine learning sur les données d'entraînement fournies. 
     '''
     print('Début de l\'entraînement du modèle...')
-    X_train, X_val, y_train, y_val = train_test_split(
-    X, y, test_size=1-train_split, random_state=42, stratify=y
-)
 
     if model_type == "LogisticRegression":
         from sklearn.linear_model import LogisticRegression
@@ -72,11 +69,18 @@ def train_model(
 if __name__ == "__main__":
     import data.train_data as td 
 
-    X, y, transformer = td.train_data("train")
+    X_train, X_val, y_train, y_val, transformer = td.train_data("train")
 
-    model, report = train_model(X, 
-                                y, 
+    params = {
+        'C': 81.66170040525944,
+        'tol': 5.171910682373782e-05
+    }
+
+    model, report = train_model(X_train, 
+                                y_train, 
+                                X_val, 
+                                y_val,
+                                params,
                                 model_type="LogisticRegression", 
-                                train_split=0.8,
                                 generate_report=True,
                                 report_filename="rapport_evaluation.html")
