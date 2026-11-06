@@ -40,7 +40,7 @@ def train_data(file_path: str = "train", train_split: float = 0.8, random_state:
 
     # 1. SPLIT DES DONNÉES BRUTES AVANT TOUT ENCODAGE 
     X_train_df, X_test_df, y_train, y_test = train_test_split(
-        X_df_full, y_full, test_size=train_split, random_state=random_state, stratify=y_full
+        X_df_full, y_full, test_size=1-train_split, random_state=random_state, stratify=y_full
     )
 
     def extract_features_and_text(df_act: pd.DataFrame):
