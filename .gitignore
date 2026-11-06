@@ -12,4 +12,4 @@ env/
 .DS_Store
 
 optuna_history.html
-rapport_evaluation.html
+rapport_evaluation.html.DS_Store
